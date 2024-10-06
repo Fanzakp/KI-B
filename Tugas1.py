@@ -1,5 +1,7 @@
 # Tugas 1 Implementasi sederhana DES 
 
+import base64
+
 # Initial Permutation (IP)
 IP = [58, 50, 42, 34, 26, 18, 10, 2,
       60, 52, 44, 36, 28, 20, 12, 4,
@@ -19,6 +21,25 @@ IP_INV = [40, 8, 48, 16, 56, 24, 64, 32,
           35, 3, 43, 11, 51, 19, 59, 27,
           34, 2, 42, 10, 50, 18, 58, 26,
           33, 1, 41, 9, 49, 17, 57, 25]
+
+# Tabel PC1 dan PC2
+PC1 = [57, 49, 41, 33, 25, 17, 9,
+       1, 58, 50, 42, 34, 26, 18,
+       10, 2, 59, 51, 43, 35, 27,
+       19, 11, 3, 60, 52, 44, 36,
+       63, 55, 47, 39, 31, 23, 15,
+       7, 62, 54, 46, 38, 30, 22,
+       14, 6, 61, 53, 45, 37, 29,
+       21, 13, 5, 28, 20, 12, 4]
+
+PC2 = [14, 17, 11, 24, 1, 5,
+       3, 28, 15, 6, 21, 10,
+       23, 19, 12, 4, 26, 8,
+       16, 7, 27, 20, 13, 2,
+       41, 52, 31, 37, 47, 55,
+       30, 40, 51, 45, 33, 48,
+       44, 49, 39, 56, 34, 53,
+       46, 42, 50, 36, 29, 32]
 
 # Expansion table
 E = [32, 1, 2, 3, 4, 5,
@@ -91,37 +112,36 @@ P = [16, 7, 20, 21, 29, 12, 28, 17,
 def permute(block, table):
     return [block[i - 1] for i in table]
 
-def bytes_to_bit_array(byte_string):
-    return [int(bit) for byte in byte_string for bit in format(byte, '08b')]
+def split(block):
+    return block[:28], block[28:]
 
-def bit_array_to_bytes(array):
-    return bytes(int(''.join(map(str, array[i:i+8])), 2) for i in range(0, len(array), 8))
+def left_shift(block, n):
+    return block[n:] + block[:n]
 
-class SimpleRNG:
-    def __init__(self, seed):
-        self.state = int.from_bytes(seed, 'big')
+def string_to_bit_array(text):
+    return [int(bit) for char in text for bit in format(ord(char), '08b')]
 
-    def random_byte(self):
-        self.state = (1103515245 * self.state + 12345) & 0xFFFFFFFF
-        return (self.state >> 24) & 0xFF
+def bit_array_to_string(array):
+    return ''.join(chr(int(''.join(map(str, array[i:i+8])), 2)) for i in range(0, len(array), 8))
 
 def generate_subkeys(key):
-    key_bytes = key.encode('utf-8')
-    if len(key_bytes) < 8:
-        key_bytes += b'\0' * (8 - len(key_bytes))
-    key_bytes = key_bytes[:8]
-    
-    rng = SimpleRNG(key_bytes)
-    return [bytes_to_bit_array(bytes([rng.random_byte() for _ in range(6)])) for _ in range(16)]
+    key = permute(string_to_bit_array(key)[:64], PC1)  
+    C, D = split(key)
+    subkeys = []
+    for i in range(16):
+        if i in [0, 1, 8, 15]:
+            C = left_shift(C, 1)
+            D = left_shift(D, 1)
+        else:
+            C = left_shift(C, 2)
+            D = left_shift(D, 2)
+        subkey = permute(C + D, PC2)
+        subkeys.append(subkey)
+    return subkeys
 
 def f_function(right_half, subkey):
-    # Ekspansi
     expanded = permute(right_half, E)
-    
-    # XOR dengan subkey
     xored = [a ^ b for a, b in zip(expanded, subkey)]
-    
-    # S-box substitution
     substituted = []
     for i in range(8):
         chunk = xored[i*6:(i+1)*6]
@@ -129,8 +149,6 @@ def f_function(right_half, subkey):
         col = int(''.join(map(str, chunk[1:5])), 2)
         val = S_BOXES[i][row][col]
         substituted.extend([int(x) for x in format(val, '04b')])
-    
-    # Permutasi
     return permute(substituted, P)
 
 def des_round(left_half, right_half, subkey):
@@ -141,61 +159,52 @@ def des_round(left_half, right_half, subkey):
 
 def add_padding(data):
     pad_length = 8 - (len(data) % 8)
-    return data + bytes([pad_length] * pad_length)
+    return data + chr(pad_length) * pad_length
 
 def remove_padding(data):
-    pad_length = data[-1]
+    pad_length = ord(data[-1])
     return data[:-pad_length]
 
 def des_encrypt(plaintext, key):
-    plaintext_bytes = add_padding(plaintext.encode('utf-8'))
-    ciphertext = b''
+    padded_text = add_padding(plaintext)
+    ciphertext = b""
     subkeys = generate_subkeys(key)
     
-    for i in range(0, len(plaintext_bytes), 8):
-        block = bytes_to_bit_array(plaintext_bytes[i:i+8])
-        
-        # Initial permutation
-        block = permute(block, IP)
+    for i in range(0, len(padded_text), 8):
+        block = permute(string_to_bit_array(padded_text[i:i+8]), IP)
         left_half, right_half = block[:32], block[32:]
         
-        # 16 rounds
         for subkey in subkeys:
             left_half, right_half = des_round(left_half, right_half, subkey)
         
-        # Final permutation
-        ciphertext_block = permute(right_half + left_half, IP_INV)
-        ciphertext += bit_array_to_bytes(ciphertext_block)
+        block = permute(right_half + left_half, IP_INV)
+        ciphertext += bytes([int(''.join(map(str, block[i:i+8])), 2) for i in range(0, 64, 8)])
     
-    return ciphertext
+    return base64.b64encode(ciphertext).decode('utf-8')
 
 def des_decrypt(ciphertext, key):
-    plaintext = b''
+    ciphertext = base64.b64decode(ciphertext)
+    plaintext = ""
     subkeys = generate_subkeys(key)[::-1]  # Reverse order for decryption
     
     for i in range(0, len(ciphertext), 8):
-        block = bytes_to_bit_array(ciphertext[i:i+8])
-        
-        # Initial permutation
-        block = permute(block, IP)
+        block = permute([int(bit) for byte in ciphertext[i:i+8] for bit in format(byte, '08b')], IP)
         left_half, right_half = block[:32], block[32:]
         
-        # 16 rounds
         for subkey in subkeys:
             left_half, right_half = des_round(left_half, right_half, subkey)
         
-        # Final permutation
-        plaintext_block = permute(right_half + left_half, IP_INV)
-        plaintext += bit_array_to_bytes(plaintext_block)
+        block = permute(right_half + left_half, IP_INV)
+        plaintext += bit_array_to_string(block)
     
-    return remove_padding(plaintext).decode('utf-8', errors='ignore')
+    return remove_padding(plaintext)
 
 # Contoh penggunaan
-key = "secretky"
-plaintext = "Hello, TC!"
+key = "12345678"
+plaintext = "Fanzakp"
 ciphertext = des_encrypt(plaintext, key)
 decrypted_text = des_decrypt(ciphertext, key)
 
 print(f"Plaintext: {plaintext}")
-print(f"Ciphertext (hex): {ciphertext.hex()}")
+print(f"Ciphertext: {ciphertext}")
 print(f"Decrypted: {decrypted_text}")
