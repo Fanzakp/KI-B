@@ -124,6 +124,10 @@ def string_to_bit_array(text):
 def bit_array_to_string(array):
     return ''.join(chr(int(''.join(map(str, array[i:i+8])), 2)) for i in range(0, len(array), 8))
 
+def generate_random_key():
+    key = ''.join(random.choice(string.ascii_letters + string.digits) for _ in range(8))
+    return key
+    
 def generate_subkeys(key):
     key = permute(string_to_bit_array(key)[:64], PC1)  
     C, D = split(key)
