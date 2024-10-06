@@ -1,6 +1,8 @@
 # Tugas 1 Implementasi sederhana DES 
 
 import base64
+import random
+import string
 
 # Initial Permutation (IP)
 IP = [58, 50, 42, 34, 26, 18, 10, 2,
@@ -203,12 +205,26 @@ def des_decrypt(ciphertext, key):
     
     return remove_padding(plaintext)
 
-# Contoh penggunaan
-key = "12345678"
-plaintext = "Fanzakp"
-ciphertext = des_encrypt(plaintext, key)
-decrypted_text = des_decrypt(ciphertext, key)
+if __name__ == "__main__":
+    # Menggunakan kunci yang diberikan
+    key = "12345678"
+    plaintext = "Fanzakp"
+    ciphertext = des_encrypt(plaintext, key)
+    decrypted_text = des_decrypt(ciphertext, key)
 
-print(f"Plaintext: {plaintext}")
-print(f"Ciphertext: {ciphertext}")
-print(f"Decrypted: {decrypted_text}")
+    print("Menggunakan kunci yang diberikan:")
+    print(f"Key: {key}")
+    print(f"Plaintext: {plaintext}")
+    print(f"Ciphertext: {ciphertext}")
+    print(f"Decrypted: {decrypted_text}")
+
+    print("\nMenggunakan kunci yang dibangkitkan secara acak:")
+    # Menggunakan kunci yang dibangkitkan secara acak
+    random_key = generate_random_key()  # Perubahan di sini
+    ciphertext = des_encrypt(plaintext, random_key)
+    decrypted_text = des_decrypt(ciphertext, random_key)
+
+    print(f"Generated key: {random_key}")
+    print(f"Plaintext: {plaintext}")
+    print(f"Ciphertext: {ciphertext}")
+    print(f"Decrypted: {decrypted_text}")
