@@ -191,7 +191,7 @@ def des_encrypt(plaintext, key):
 def des_decrypt(ciphertext, key):
     ciphertext = base64.b64decode(ciphertext)
     plaintext = ""
-    subkeys = generate_subkeys(key)[::-1]  # Reverse order for decryption
+    subkeys = generate_subkeys(key)[::-1]  
     
     for i in range(0, len(ciphertext), 8):
         block = permute([int(bit) for byte in ciphertext[i:i+8] for bit in format(byte, '08b')], IP)
@@ -206,7 +206,7 @@ def des_decrypt(ciphertext, key):
     return remove_padding(plaintext)
 
 if __name__ == "__main__":
-    # Menggunakan kunci yang diberikan
+
     key = "12345678"
     plaintext = "Fanzakp"
     ciphertext = des_encrypt(plaintext, key)
@@ -219,8 +219,8 @@ if __name__ == "__main__":
     print(f"Decrypted: {decrypted_text}")
 
     print("\nMenggunakan kunci yang dibangkitkan secara acak:")
-    # Menggunakan kunci yang dibangkitkan secara acak
-    random_key = generate_random_key()  # Perubahan di sini
+ 
+    random_key = generate_random_key()  
     ciphertext = des_encrypt(plaintext, random_key)
     decrypted_text = des_decrypt(ciphertext, random_key)
 
